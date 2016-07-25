@@ -68,28 +68,33 @@ func main() {
 	curtime := time.Now().Unix()
 	lasttime := curtime
 	elapsed := int64(0)
+	firstrun := 1
 
 	for timeloop > 0 {
 
-//		fmt.Printf("Sleeping for %d seconds...\n", POLL_INTERVAL)
-		time.Sleep(POLL_INTERVAL*1000*1000*1000)
+		if firstrun == 0 {
+			//fmt.Printf("Sleeping for %d seconds...\n", POLL_INTERVAL)
+			time.Sleep(POLL_INTERVAL*1000*1000*1000)
+			curtime = time.Now().Unix()
+		}
 
-		curtime := time.Now().Unix()
 		diff := curtime - lasttime
 
-		if (lasttime > curtime) {
+		if lasttime > curtime {
 			diff = lasttime - curtime
 		}
 
 		elapsed += diff
 
-		tmplasttime := lasttime
 		lasttime = curtime
 
-		if (elapsed >= FORCE_RECALIBRATION) {
+		if firstrun > 0 {
+			fmt.Println("Synching time on program launch...")
+			firstrun = 0
+		} else if elapsed >= FORCE_RECALIBRATION {
 			fmt.Println("Reached maximum time elapsed... forcing recalibration")
 			elapsed = 0
-		} else if (diff >= MAXDRIFT) {
+		} else if diff >= MAXDRIFT {
 			fmt.Printf("Exceeded maximum clock drift (%d vs %d seconds)... forcing time update\n", diff, MAXDRIFT)
 		} else {
 //			fmt.Printf("%d seconds have elapsed, last diff was %d...\n", elapsed, diff)
@@ -118,27 +123,27 @@ func main() {
 
 		if err != nil {
 			fmt.Println("Error reading response from server: ", err)
-			os.Exit(-1)
+			continue
 		}
 
-		fmt.Printf("got back %d bytes\n", nread)
+		//fmt.Printf("got back %d bytes\n", nread)
 
 		if nread < 16 {
 			fmt.Println("There was a problem reading the response. Much shorter than expected.")
-			os.Exit(-1)
+			continue
 		}
 
 		utcbytes := inbuf[11:15]
 		utcnum := binary.BigEndian.Uint32(utcbytes)
 
-		fmt.Println("UTC bytes: ", utcbytes)
-		fmt.Printf("UTC num is %d\n", utcnum)
+		//fmt.Println("UTC bytes: ", utcbytes)
+		//fmt.Printf("UTC num is %d\n", utcnum)
 
 		fmt.Printf("Google server UTC time is: %s\n", time.Unix(int64(utcnum), 0))
 
-		_, err = setSystemTimeLinux(utcnum)
+		rval, err := setSystemTimeLinux(utcnum)
 
-		if err != nil {
+		if rval != 0 {
 			fmt.Println("Attempt to set system clock failed: ", err)
 		}
 
